@@ -4,7 +4,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import psutil
 import time
-import re
 from config import BOT_TOKEN, OWNER_ID
 from database import Database
 from stream_manager import StreamManager
@@ -55,7 +54,7 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stream_title_start = 3
     stream_title_end = len(args)
     
-    # Check for logo_url (must be a valid URL starting with http:// or https://)
+    # Check for logo_url (must start with http:// or https://)
     for i in range(3, len(args)):
         if args[i].startswith(('http://', 'https://')):
             logo_url = args[i]
