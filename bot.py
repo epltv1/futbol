@@ -48,9 +48,9 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logo_url = args[4] if len(args) > 4 else None
     text_overlay = " ".join(args[5:]) if len(args) > 5 else None
 
-    # Validate inputs
-    if not re.match(r'^https?://', m3u8_link) or not re.match(r'^rtmp://', rtmp_url):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid M3U8 link or RTMP URL.")
+    # Validate inputs (check for non-empty strings)
+    if not m3u8_link or not rtmp_url or not stream_key or not stream_title:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="M3U8 link, RTMP URL, stream key, and stream title cannot be empty.")
         return
 
     try:
@@ -123,11 +123,31 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="This command is restricted to the bot owner.")
         return
 
+    # Calculate bot uptime
     uptime = time.time() - start_time
     uptime_str = f"{int(uptime // 3600)}h {int((uptime % 3600) // 60)}m {int(uptime % 60)}s"
+
+    # Get CPU usage
     cpu_usage = psutil.cpu_percent()
-    disk_usage = psutil.disk_usage('/').percent
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Bot Uptime: {uptime_str}\nCPU Usage: {cpu_usage}%\nDisk Usage: {disk_usage}%")
+
+    # Get storage (disk) usage in GB
+    disk = psutil.disk_usage('/')
+    disk_used = round(disk.used / (1024 ** 3), 2)  # Convert bytes to GB
+    disk_total = round(disk.total / (1024 ** 3), 2)  # Convert bytes to GB
+
+    # Get RAM usage in GB
+    memory = psutil.virtual_memory()
+    memory_used = round(memory.used / (1024 ** 3), 2)  # Convert bytes to GB
+    memory_total = round(memory.total / (1024 ** 3), 2)  # Convert bytes to GB
+
+    # Format response
+    response = (
+        f"Bot Uptime: {uptime_str}\n"
+        f"CPU Usage: {cpu_usage}%\n"
+        f"Storage: {disk_used} GB used / {disk_total} GB total\n"
+        f"RAM: {memory_used} GB used / {memory_total} GB total"
+    )
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
 
 # /auth command (owner only)
 async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -183,7 +203,7 @@ Available Commands:
     if update.effective_user.id == OWNER_ID:
         help_text += """
 Owner-Only Commands:
-/ping - Show bot uptime and system resources
+/ping - Show bot uptime, CPU, storage, and RAM usage
 /auth <telegram_id> - Authorize a user
 /deauth <telegram_id> - Deauthorize a user
 """
