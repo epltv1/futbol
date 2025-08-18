@@ -1,6 +1,6 @@
-# Telegram Stream Bot
+# Futbol Stream Bot
 
-A Telegram bot that streams M3U8 links to RTMP destinations with optional logo and text overlays.
+A Telegram bot in the `futbol` repository that streams M3U8 links to RTMP destinations with optional logo and text overlays.
 
 ## Features
 - `/start`: Welcome message.
@@ -13,10 +13,12 @@ A Telegram bot that streams M3U8 links to RTMP destinations with optional logo a
 - `/help`: List all commands.
 
 ## Setup
-1. Install dependencies: `pip install -r requirements.txt`
-2. Install FFmpeg on the VPS: `sudo apt-get install ffmpeg`
-3. Update `config.py` with your bot token and Telegram ID.
-4. Run the bot: `python bot.py`
+1. Clone the repository: `git clone https://github.com/epltv1/futbol.git`
+2. Navigate to the main branch: `cd futbol`
+3. Install dependencies: `pip install -r requirements.txt`
+4. Install FFmpeg on the VPS: `sudo apt-get install ffmpeg`
+5. Update `config.py` with your bot token and Telegram ID.
+6. Run the bot: `python bot.py`
 
 ## Deployment
 See deployment instructions below.
