@@ -4,10 +4,10 @@ A Telegram bot in the `futbol` repository that streams M3U8 links to RTMP destin
 
 ## Features
 - `/start`: Welcome message.
-- `/stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> [logo_url] [text]`: Start a stream with overlays.
-- `/streaminfo`: List active streams with inline stop buttons.
+- `/stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> [logo_url] [text]`: Start a stream with overlays (logo top-right, text bottom-right).
+- `/streaminfo`: List active streams with their ID, title, duration, and inline stop buttons.
 - `/stop <stream_id>`: Stop a specific stream.
-- `/ping`: Show bot uptime and system resources (owner only).
+- `/ping`: Show bot uptime and system resources (CPU, storage; owner only).
 - `/auth <telegram_id>`: Authorize a user (owner only).
 - `/deauth <telegram_id>`: Deauthorize a user (owner only).
 - `/help`: List all commands.
@@ -20,10 +20,22 @@ A Telegram bot in the `futbol` repository that streams M3U8 links to RTMP destin
 5. Update `config.py` with your bot token and Telegram ID.
 6. Run the bot: `python bot.py`
 
-## Deployment
-See deployment instructions below.
-
 ## Requirements
 - Python 3.8+
 - FFmpeg
 - SQLite (included with Python)
+- `curl` (for downloading logos)
+
+## Deployment to VPS
+Follow these steps to deploy the bot on an Ubuntu-based VPS:
+
+### Prerequisites
+- A VPS running Ubuntu (e.g., DigitalOcean, AWS, Linode).
+- SSH access to the VPS.
+- A Telegram bot token from BotFather (create via `@BotFather` on Telegram).
+- Your Telegram ID (use `@userinfobot` on Telegram to get it).
+
+### Steps
+1. **Connect to the VPS**:
+   ```bash
+   ssh username@your-vps-ip
