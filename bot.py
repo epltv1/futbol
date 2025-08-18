@@ -14,6 +14,12 @@ db = Database()
 stream_manager = StreamManager()
 start_time = time.time()
 
+# Placeholder image URLs (replace with your own image links)
+STREAM_IMAGE_URL = "https://example.com/stream_image.jpg"  # Replace with your image for /stream
+STOP_IMAGE_URL = "https://example.com/stop_image.jpg"      # Replace with your image for /stop
+PING_IMAGE_URL = "https://example.com/ping_image.jpg"      # Replace with your image for /ping
+HELP_IMAGE_URL = "https://example.com/help_image.jpg"      # Replace with your image for /help
+
 # Utility to check if user is authorized
 async def is_authorized_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -24,7 +30,7 @@ async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
         await update.message.delete()
 
-# /start command
+# /start command (no image)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if not await is_authorized_user(update, context):
@@ -36,12 +42,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if not await is_authorized_user(update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="You are not authorized to use this command.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption="You are not authorized to use this command."
+        )
         return
 
     args = context.args
     if len(args) < 4:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title>")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption="Usage: /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title>"
+        )
         return
 
     # Extract parameters
@@ -52,34 +66,53 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Validate inputs (check for non-empty strings)
     if not m3u8_link or not rtmp_url or not stream_key or not stream_title:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="M3U8 link, RTMP URL, stream key, and stream title cannot be empty.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption="M3U8 link, RTMP URL, stream key, and stream title cannot be empty."
+        )
         return
 
     try:
         stream_id = stream_manager.start_stream(m3u8_link, rtmp_url, stream_key, stream_title)
         db.add_stream(stream_id, m3u8_link, rtmp_url, stream_key, stream_title)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Stream started with ID: {stream_id}")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption=f"Stream started with ID: {stream_id}"
+        )
     except Exception as e:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Failed to start stream: {str(e)}")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption=f"Failed to start stream: {str(e)}"
+        )
 
 # /streaminfo command
 async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if not await is_authorized_user(update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="You are not authorized to use this command.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption="You are not authorized to use this command."
+        )
         return
 
     streams = db.get_all_streams()
     if not streams:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="No active streams.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STREAM_IMAGE_URL,
+            caption="No active streams."
+        )
         return
 
     for stream in streams:
         stream_id, m3u8_link, _, _, stream_title, _ = stream
         duration = stream_manager.get_stream_duration(stream_id)
         if duration:
-            # Generate thumbnail
-            thumbnail_path = stream_manager.generate_thumbnail(m3u8_link, stream_id)
+            thumbnail_path = f"/tmp/{stream_id}_thumb.jpg"
             message = f"Stream ID: {stream_id}\nTitle: {stream_title}\nDuration: {duration}"
             keyboard = [[InlineKeyboardButton("Stop", callback_data=f"stop_{stream_id}")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -92,9 +125,10 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         reply_markup=reply_markup
                     )
             else:
-                await context.bot.send_message(
+                await context.bot.send_photo(
                     chat_id=update.effective_chat.id,
-                    text=f"{message}\nWarning: Failed to generate thumbnail.",
+                    photo=STREAM_IMAGE_URL,
+                    caption=f"{message}\nWarning: Thumbnail not available.",
                     reply_markup=reply_markup
                 )
 
@@ -102,40 +136,60 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if not await is_authorized_user(update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="You are not authorized to use this command.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STOP_IMAGE_URL,
+            caption="You are not authorized to use this command."
+        )
         return
 
     if not context.args:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /stop <stream_id>")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STOP_IMAGE_URL,
+            caption="Usage: /stop <stream_id>"
+        )
         return
 
     stream_id = context.args[0]
     if stream_manager.stop_stream(stream_id):
         db.remove_stream(stream_id)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Stream {stream_id} stopped.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STOP_IMAGE_URL,
+            caption=f"Stream {stream_id} stopped."
+        )
     else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Stream {stream_id} not found.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=STOP_IMAGE_URL,
+            caption=f"Stream {stream_id} not found."
+        )
 
 # Inline button handler for stopping streams
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if not await is_authorized_user(update, context):
-        await query.message.edit_text(text="You are not authorized to perform this action.")
+        await query.message.edit_caption(caption="You are not authorized to perform this action.")
         return
 
     stream_id = query.data.replace("stop_", "")
     if stream_manager.stop_stream(stream_id):
         db.remove_stream(stream_id)
-        await query.message.edit_text(text=f"Stream {stream_id} stopped.")
+        await query.message.edit_caption(caption=f"Stream {stream_id} stopped.")
     else:
-        await query.message.edit_text(text=f"Stream {stream_id} not found.")
+        await query.message.edit_caption(caption=f"Stream {stream_id} not found.")
 
 # /ping command (owner only)
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if update.effective_user.id != OWNER_ID:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="This command is restricted to the bot owner.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=PING_IMAGE_URL,
+            caption="This command is restricted to the bot owner."
+        )
         return
 
     # Calculate bot uptime
@@ -162,9 +216,13 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Storage: {disk_used} GB used / {disk_total} GB total\n"
         f"RAM: {memory_used} GB used / {memory_total} GB total"
     )
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=PING_IMAGE_URL,
+        caption=response
+    )
 
-# /auth command (owner only)
+# /auth command (no image)
 async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if update.effective_user.id != OWNER_ID:
@@ -182,7 +240,7 @@ async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except ValueError:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Invalid Telegram ID.")
 
-# /deauth command (owner only)
+# /deauth command (no image)
 async def deauth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if update.effective_user.id != OWNER_ID:
@@ -204,7 +262,11 @@ async def deauth(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     if not await is_authorized_user(update, context):
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="You are not authorized to use this command.")
+        await context.bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=HELP_IMAGE_URL,
+            caption="You are not authorized to use this command."
+        )
         return
 
     help_text = """
@@ -222,7 +284,11 @@ Owner-Only Commands:
 /auth <telegram_id> - Authorize a user
 /deauth <telegram_id> - Deauthorize a user
 """
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text)
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=HELP_IMAGE_URL,
+        caption=help_text
+    )
 
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
