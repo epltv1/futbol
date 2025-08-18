@@ -1,4 +1,11 @@
 __pycache__/
 *.pyc
-stream_bot.db
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.db
+config.py
 /tmp/*.png
+/tmp/*.log
