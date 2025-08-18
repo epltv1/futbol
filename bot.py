@@ -5,6 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 import psutil
 import time
 import os
+import subprocess
 from config import BOT_TOKEN, OWNER_ID
 from database import Database
 from stream_manager import StreamManager
@@ -65,8 +66,9 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
+        user_id = update.effective_user.id
         stream_id = stream_manager.start_stream(m3u8_link, rtmp_url, stream_key, stream_title)
-        db.add_stream(stream_id, m3u8_link, rtmp_url, stream_key, stream_title)
+        db.add_stream(stream_id, m3u8_link, rtmp_url, stream_key, stream_title, user_id)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=f"Stream started with ID: {stream_id}"
@@ -80,6 +82,7 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /streaminfo command
 async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
+    user_id = update.effective_user.id
     if not await is_authorized_user(update, context):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -87,7 +90,12 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    streams = db.get_all_streams()
+    # Owner sees all streams, others see only their own
+    if user_id == OWNER_ID:
+        streams = db.get_all_streams()
+    else:
+        streams = db.get_user_streams(user_id)
+
     if not streams:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -96,7 +104,7 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     for stream in streams:
-        stream_id, m3u8_link, _, _, stream_title, _ = stream
+        stream_id, m3u8_link, _, _, stream_title, _, _ = stream
         duration = stream_manager.get_stream_duration(stream_id)
         if duration:
             thumbnail_path = f"/tmp/{stream_id}_thumb.jpg"
@@ -121,6 +129,7 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /stop command
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
+    user_id = update.effective_user.id
     if not await is_authorized_user(update, context):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -136,6 +145,21 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     stream_id = context.args[0]
+    # Check if stream exists and user is allowed to stop it
+    stream = db.get_stream(stream_id)
+    if not stream:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"Stream {stream_id} not found."
+        )
+        return
+    if user_id != OWNER_ID and stream[5] != user_id:  # stream[5] is user_id
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"You can only stop your own streams."
+        )
+        return
+
     if stream_manager.stop_stream(stream_id):
         db.remove_stream(stream_id)
         await context.bot.send_message(
@@ -152,11 +176,20 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    user_id = update.effective_user.id
     if not await is_authorized_user(update, context):
         await query.message.edit_caption(caption="You are not authorized to perform this action.")
         return
 
     stream_id = query.data.replace("stop_", "")
+    stream = db.get_stream(stream_id)
+    if not stream:
+        await query.message.edit_caption(caption=f"Stream {stream_id} not found.")
+        return
+    if user_id != OWNER_ID and stream[5] != user_id:  # stream[5] is user_id
+        await query.message.edit_caption(caption="You can only stop your own streams.")
+        return
+
     if stream_manager.stop_stream(stream_id):
         db.remove_stream(stream_id)
         await query.message.edit_caption(caption=f"Stream {stream_id} stopped.")
@@ -201,6 +234,35 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=update.effective_chat.id,
         text=response
     )
+
+# /reboot command (owner only)
+async def reboot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await delete_message(update, context)
+    if update.effective_user.id != OWNER_ID:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="This command is restricted to the bot owner."
+        )
+        return
+
+    try:
+        # Stop all streams
+        streams = db.get_all_streams()
+        for stream in streams:
+            stream_id = stream[0]
+            stream_manager.stop_stream(stream_id)
+            db.remove_stream(stream_id)
+        
+        # Initiate VPS reboot
+        subprocess.run(["sudo", "reboot"], check=True)
+        # Note: The bot will not send a message immediately after reboot
+        # as it will be terminated during the reboot process.
+        # The message will be sent after the bot restarts (handled in main()).
+    except Exception as e:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"Failed to reboot: {str(e)}"
+        )
 
 # /auth command
 async def auth(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -252,14 +314,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Available Commands:
 /start - Initialize the bot
 /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> - Start a stream
-/streaminfo - List all active streams with thumbnails and details
-/stop <stream_id> - Stop a specific stream
+/streaminfo - List your active streams with thumbnails and details
+/stop <stream_id> - Stop a specific stream you started
 /help - Show this help message
 """
     if update.effective_user.id == OWNER_ID:
         help_text += """
 Owner-Only Commands:
 /ping - Show bot uptime, CPU, storage, and RAM usage
+/reboot - Stop all streams and reboot the VPS
 /auth <telegram_id> - Authorize a user
 /deauth <telegram_id> - Deauthorize a user
 """
@@ -277,10 +340,21 @@ def main():
     application.add_handler(CommandHandler("streaminfo", streaminfo))
     application.add_handler(CommandHandler("stop", stop))
     application.add_handler(CommandHandler("ping", ping))
+    application.add_handler(CommandHandler("reboot", reboot))
     application.add_handler(CommandHandler("auth", auth))
     application.add_handler(CommandHandler("deauth", deauth))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CallbackQueryHandler(button_callback))
+
+    # Send "Boot complete" message to owner after bot starts
+    async def send_boot_message():
+        await application.bot.send_message(
+            chat_id=OWNER_ID,
+            text="Boot complete, enjoy using the bot"
+        )
+
+    # Schedule the boot message to run after bot initialization
+    application.job_queue.run_once(lambda context: send_boot_message(), 1)
 
     # Start the bot
     application.run_polling()
