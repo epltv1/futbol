@@ -7,5 +7,5 @@ env/
 venv/
 *.db
 config.py
-/tmp/*.jpg
+/tmp/*.png
 /tmp/*.log
