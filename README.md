@@ -30,11 +30,12 @@ A Telegram bot in the `futbol` repository that streams M3U8 links to RTMP destin
 The `/stream` command supports flexible overlays:
 - **Mandatory**: `m3u8_link`, `rtmp_url`, `stream_key`, `stream_title`.
 - **Optional**: `logo_url` (image URL for top-right logo), `text` (text for bottom-right overlay).
+- **Important**: If `stream_title` contains spaces, it must be followed by either a `logo_url` (starting with http:// or https://) or `text`. If using only `text`, it should not start with http:// or https:// to avoid confusion with `logo_url`.
 - Examples:
-  - Both logo and text: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream https://example.com/logo.png Test`
-  - Text only: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream Test`
+  - Both logo and text: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream https://example.com/logo.png Match Live`
+  - Text only: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream Match Live`
   - Logo only: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream https://example.com/logo.png`
-  - Neither: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream`
+  - No overlays: `/stream <m3u8_link> <rtmp_url> <stream_key> Test stream`
 
 ## Deployment to VPS
 Follow these steps to deploy the bot on an Ubuntu-based VPS:
