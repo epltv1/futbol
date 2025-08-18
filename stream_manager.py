@@ -3,18 +3,17 @@ import subprocess
 import uuid
 import os
 from datetime import datetime
-import shlex
 
 class StreamManager:
     def __init__(self):
         self.processes = {}
 
-    def start_stream(self, m3u8_link, rtmp_url, stream_key, stream_title, logo_url=None, text_overlay=None):
+    def start_stream(self, m3u8_link, rtmp_url, stream_key, stream_title):
         stream_id = str(uuid.uuid4())
         # Ensure rtmp_url ends with a slash and combine with stream_key
         rtmp_destination = f"{rtmp_url.rstrip('/')}/{stream_key.lstrip('/')}"
         
-        # Build FFmpeg command
+        # Build FFmpeg command for streaming
         ffmpeg_cmd = [
             "ffmpeg",
             "-re",  # Read input at native frame rate
@@ -26,26 +25,6 @@ class StreamManager:
             "-loglevel", "error",  # Log only errors
             rtmp_destination
         ]
-
-        # Add logo overlay if provided
-        if logo_url:
-            logo_path = f"/tmp/{stream_id}_logo.png"
-            os.system(f"curl -s -o {logo_path} {logo_url}")
-            if os.path.exists(logo_path):
-                ffmpeg_cmd.insert(-2, "-vf")
-                ffmpeg_cmd.insert(-2, f"movie={logo_path}:format=png [logo]; [in][logo] overlay=W-w-10:10 [out]")
-            else:
-                raise ValueError(f"Failed to download logo from {logo_url}")
-
-        # Add text overlay if provided
-        if text_overlay:
-            # Escape special characters in text_overlay
-            text_overlay = shlex.quote(text_overlay.strip())
-            if logo_url:
-                ffmpeg_cmd[-3] = f"{ffmpeg_cmd[-3].replace('[out]', '')},drawtext=text={text_overlay}:fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10 [out]"
-            else:
-                ffmpeg_cmd.insert(-2, "-vf")
-                ffmpeg_cmd.insert(-2, f"drawtext=text={text_overlay}:fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10")
 
         # Start FFmpeg process with detailed logging
         log_file = f"/tmp/{stream_id}_ffmpeg.log"
@@ -73,10 +52,8 @@ class StreamManager:
             except subprocess.TimeoutExpired:
                 self.processes[stream_id]["process"].kill()
             del self.processes[stream_id]
-            # Clean up logo file and log file if they exist
-            logo_path = f"/tmp/{stream_id}_logo.png"
-            log_path = f"/tmp/{stream_id}_ffmpeg.log"
-            for path in [logo_path, log_path]:
+            # Clean up log file and thumbnail if exist
+            for path in [f"/tmp/{stream_id}_ffmpeg.log", f"/tmp/{stream_id}_thumb.jpg"]:
                 if os.path.exists(path):
                     os.remove(path)
             return True
@@ -88,3 +65,21 @@ class StreamManager:
             duration = (datetime.utcnow() - start_time).total_seconds()
             return f"{int(duration // 3600)}h {int((duration % 3600) // 60)}m {int(duration % 60)}s"
         return None
+
+    def generate_thumbnail(self, m3u8_link, stream_id):
+        thumbnail_path = f"/tmp/{stream_id}_thumb.jpg"
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-i", m3u8_link,
+            "-vframes", "1",
+            "-vf", "select=eq(n\,0)",  # Capture first frame
+            "-q:v", "2",  # High quality JPEG
+            thumbnail_path
+        ]
+        try:
+            subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+            if os.path.exists(thumbnail_path):
+                return thumbnail_path
+            return None
+        except Exception:
+            return None
