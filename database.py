@@ -16,6 +16,7 @@ class Database:
                 rtmp_url TEXT,
                 stream_key TEXT,
                 stream_title TEXT,
+                user_id INTEGER,
                 start_time TIMESTAMP
             )
         ''')
@@ -26,18 +27,28 @@ class Database:
         ''')
         self.conn.commit()
 
-    def add_stream(self, stream_id, m3u8_link, rtmp_url, stream_key, stream_title):
+    def add_stream(self, stream_id, m3u8_link, rtmp_url, stream_key, stream_title, user_id):
         cursor = self.conn.cursor()
         cursor.execute('''
-            INSERT INTO streams (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, start_time)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, datetime.utcnow()))
+            INSERT INTO streams (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, user_id, start_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, user_id, datetime.utcnow()))
         self.conn.commit()
 
     def get_all_streams(self):
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM streams')
         return cursor.fetchall()
+
+    def get_user_streams(self, user_id):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM streams WHERE user_id = ?', (user_id,))
+        return cursor.fetchall()
+
+    def get_stream(self, stream_id):
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM streams WHERE stream_id = ?', (stream_id,))
+        return cursor.fetchone()
 
     def remove_stream(self, stream_id):
         cursor = self.conn.cursor()
