@@ -44,10 +44,31 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> [logo_url] [text]")
         return
 
-    m3u8_link, rtmp_url, stream_key, stream_title = args[:4]
-    logo_url = args[4] if len(args) > 4 else None
-    text_overlay = " ".join(args[5:]) if len(args) > 5 else None
-
+    # Extract mandatory parameters
+    m3u8_link = args[0]
+    rtmp_url = args[1]
+    stream_key = args[2]
+    
+    # Extract stream_title (join all args until logo_url or text)
+    logo_url = None
+    text_overlay = None
+    stream_title_start = 3
+    stream_title_end = len(args)
+    
+    # Check for logo_url (must be a valid URL starting with http:// or https://)
+    for i in range(3, len(args)):
+        if args[i].startswith(('http://', 'https://')):
+            logo_url = args[i]
+            stream_title_end = i
+            break
+    
+    # Extract stream_title
+    stream_title = " ".join(args[3:stream_title_end]) if stream_title_end > 3 else args[3]
+    
+    # Extract text_overlay (remaining args after logo_url)
+    if logo_url and stream_title_end + 1 < len(args):
+        text_overlay = " ".join(args[stream_title_end + 1:])
+    
     # Validate inputs (check for non-empty strings)
     if not m3u8_link or not rtmp_url or not stream_key or not stream_title:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="M3U8 link, RTMP URL, stream key, and stream title cannot be empty.")
