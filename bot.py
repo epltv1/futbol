@@ -15,10 +15,10 @@ stream_manager = StreamManager()
 start_time = time.time()
 
 # Placeholder image URLs (replace with your own image links)
-STREAM_IMAGE_URL = "https://example.com/stream_image.jpg" # Replace with your image for /stream
-STOP_IMAGE_URL = "https://example.com/stop_image.jpg" # Replace with your image for /stop
-PING_IMAGE_URL = "https://example.com/ping_image.jpg" # Replace with your image for /ping
-HELP_IMAGE_URL = "https://example.com/help_image.jpg" # Replace with your image for /help
+STREAM_IMAGE_URL = "https://media.istockphoto.com/id/1319815121/vector/live-stream-sign-live-broadcast-button-for-blog-player-broadcast-website-online-radio-media.jpg?s=612x612&w=0&k=20&c=V8PRnbVnluFz3fV_edAsKkVHVqsm5dNAc5JRDDKhl6M=" # Replace with your image for /stream
+STOP_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvO4CCz2V8wyFmLOM9fqKEXGoc1TBwLHbcxA&s" # Replace with your image for /stop
+PING_IMAGE_URL = "https://t4.ftcdn.net/jpg/02/32/60/07/360_F_232600757_EsSuPY79B3yKzDlqh5QNJhgl20v1emLi.jpg" # Replace with your image for /ping
+HELP_IMAGE_URL = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTT07ZOOW8pZrNb9KpwaLWhOOgfJMPof0OYZg&s" # Replace with your image for /help
 
 # Utility to check if user is authorized
 async def is_authorized_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
