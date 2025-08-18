@@ -3,6 +3,7 @@ import subprocess
 import uuid
 import os
 from datetime import datetime
+import shlex
 
 class StreamManager:
     def __init__(self):
@@ -24,22 +25,28 @@ class StreamManager:
 
         # Add logo overlay if provided
         if logo_url:
-            # Download logo (assuming it's accessible)
             logo_path = f"/tmp/{stream_id}_logo.png"
             os.system(f"curl -o {logo_path} {logo_url}")
-            ffmpeg_cmd.insert(-2, "-vf")
-            ffmpeg_cmd.insert(-2, f"movie={logo_path}:format=png [logo]; [in][logo] overlay=W-w-10:10 [out]")
+            if os.path.exists(logo_path):
+                ffmpeg_cmd.insert(-2, "-vf")
+                ffmpeg_cmd.insert(-2, f"movie={logo_path}:format=png [logo]; [in][logo] overlay=W-w-10:10 [out]")
+            else:
+                raise ValueError(f"Failed to download logo from {logo_url}")
 
         # Add text overlay if provided
         if text_overlay:
+            # Escape special characters in text_overlay
+            text_overlay = shlex.quote(text_overlay)
             if logo_url:
-                ffmpeg_cmd[-3] = f"{ffmpeg_cmd[-3].replace('[out]', '')},drawtext=text='{text_overlay}':fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10 [out]"
+                ffmpeg_cmd[-3] = f"{ffmpeg_cmd[-3].replace('[out]', '')},drawtext=text={text_overlay}:fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10 [out]"
             else:
                 ffmpeg_cmd.insert(-2, "-vf")
-                ffmpeg_cmd.insert(-2, f"drawtext=text='{text_overlay}':fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10")
+                ffmpeg_cmd.insert(-2, f"drawtext=text={text_overlay}:fontcolor=white:fontsize=24:x=W-tw-10:y=H-th-10")
 
-        # Start FFmpeg process
-        process = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Start FFmpeg process with logging
+        log_file = f"/tmp/{stream_id}_ffmpeg.log"
+        with open(log_file, "w") as log_file:
+            process = subprocess.Popen(ffmpeg_cmd, stdout=log_file, stderr=log_file)
         self.processes[stream_id] = {"process": process, "start_time": datetime.utcnow()}
         return stream_id
 
