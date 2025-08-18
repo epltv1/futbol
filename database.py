@@ -1,5 +1,6 @@
 # database.py
 import sqlite3
+from datetime import datetime
 
 class Database:
     def __init__(self):
@@ -15,8 +16,6 @@ class Database:
                 rtmp_url TEXT,
                 stream_key TEXT,
                 stream_title TEXT,
-                logo_url TEXT,
-                text_overlay TEXT,
                 start_time TIMESTAMP
             )
         ''')
@@ -27,12 +26,12 @@ class Database:
         ''')
         self.conn.commit()
 
-    def add_stream(self, stream_id, m3u8_link, rtmp_url, stream_key, stream_title, logo_url, text_overlay):
+    def add_stream(self, stream_id, m3u8_link, rtmp_url, stream_key, stream_title):
         cursor = self.conn.cursor()
         cursor.execute('''
-            INSERT INTO streams (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, logo_url, text_overlay, start_time)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, logo_url, text_overlay, datetime.utcnow()))
+            INSERT INTO streams (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, start_time)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (stream_id, m3u8_link, rtmp_url, stream_key, stream_title, datetime.utcnow()))
         self.conn.commit()
 
     def get_all_streams(self):
