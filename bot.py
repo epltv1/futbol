@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 import psutil
 import time
+import os
 from config import BOT_TOKEN, OWNER_ID
 from database import Database
 from stream_manager import StreamManager
@@ -40,42 +41,23 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     args = context.args
     if len(args) < 4:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> [logo_url] [text]")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="Usage: /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title>")
         return
 
-    # Extract mandatory parameters
+    # Extract parameters
     m3u8_link = args[0]
     rtmp_url = args[1]
     stream_key = args[2]
-    
-    # Extract stream_title (join all args until logo_url or text)
-    logo_url = None
-    text_overlay = None
-    stream_title_start = 3
-    stream_title_end = len(args)
-    
-    # Check for logo_url (must start with http:// or https://)
-    for i in range(3, len(args)):
-        if args[i].startswith(('http://', 'https://')):
-            logo_url = args[i]
-            stream_title_end = i
-            break
-    
-    # Extract stream_title
-    stream_title = " ".join(args[3:stream_title_end]) if stream_title_end > 3 else args[3]
-    
-    # Extract text_overlay (remaining args after logo_url)
-    if logo_url and stream_title_end + 1 < len(args):
-        text_overlay = " ".join(args[stream_title_end + 1:])
-    
+    stream_title = " ".join(args[3:])  # Allow stream_title with spaces
+
     # Validate inputs (check for non-empty strings)
     if not m3u8_link or not rtmp_url or not stream_key or not stream_title:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="M3U8 link, RTMP URL, stream key, and stream title cannot be empty.")
         return
 
     try:
-        stream_id = stream_manager.start_stream(m3u8_link, rtmp_url, stream_key, stream_title, logo_url, text_overlay)
-        db.add_stream(stream_id, m3u8_link, rtmp_url, stream_key, stream_title, logo_url, text_overlay)
+        stream_id = stream_manager.start_stream(m3u8_link, rtmp_url, stream_key, stream_title)
+        db.add_stream(stream_id, m3u8_link, rtmp_url, stream_key, stream_title)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Stream started with ID: {stream_id}")
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Failed to start stream: {str(e)}")
@@ -92,16 +74,29 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="No active streams.")
         return
 
-    message = "Active Streams:\n"
     for stream in streams:
-        stream_id, _, _, _, stream_title, _, _, _ = stream
+        stream_id, m3u8_link, _, _, stream_title, _ = stream
         duration = stream_manager.get_stream_duration(stream_id)
         if duration:
+            # Generate thumbnail
+            thumbnail_path = stream_manager.generate_thumbnail(m3u8_link, stream_id)
+            message = f"Stream ID: {stream_id}\nTitle: {stream_title}\nDuration: {duration}"
             keyboard = [[InlineKeyboardButton("Stop", callback_data=f"stop_{stream_id}")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            message += f"ID: {stream_id}\nTitle: {stream_title}\nDuration: {duration}\n\n"
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=message, reply_markup=reply_markup)
-            message = ""
+            if os.path.exists(thumbnail_path):
+                with open(thumbnail_path, 'rb') as photo:
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=photo,
+                        caption=message,
+                        reply_markup=reply_markup
+                    )
+            else:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"{message}\nWarning: Failed to generate thumbnail.",
+                    reply_markup=reply_markup
+                )
 
 # /stop command
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -215,8 +210,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = """
 Available Commands:
 /start - Initialize the bot
-/stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> [logo_url] [text] - Start a stream
-/streaminfo - List all active streams with details
+/stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> - Start a stream
+/streaminfo - List all active streams with thumbnails and details
 /stop <stream_id> - Stop a specific stream
 /help - Show this help message
 """
