@@ -257,7 +257,7 @@ async def reboot(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subprocess.run(["sudo", "reboot"], check=True)
         # Note: The bot will not send a message immediately after reboot
         # as it will be terminated during the reboot process.
-        # The message will be sent after the bot restarts (handled in main()).
+        # The message is sent after the bot restarts (handled in main()).
     except Exception as e:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -348,13 +348,18 @@ def main():
 
     # Send "Boot complete" message to owner after bot starts
     async def send_boot_message():
-        await application.bot.send_message(
-            chat_id=OWNER_ID,
-            text="Boot complete, enjoy using the bot"
-        )
+        try:
+            await application.bot.send_message(
+                chat_id=OWNER_ID,
+                text="Boot complete, enjoy using the bot"
+            )
+        except Exception as e:
+            print(f"Failed to send boot message: {str(e)}")
 
-    # Schedule the boot message to run after bot initialization
-    application.job_queue.run_once(lambda context: send_boot_message(), 1)
+    # Run the boot message directly
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(send_boot_message())
 
     # Start the bot
     application.run_polling()
