@@ -11,11 +11,13 @@ class StreamManager:
         self.processes = {}
         self.thumbnail_threads = {}
         self.stop_threads = {}
+        # Define FFmpeg path
+        self.ffmpeg_path = "/home/fubtolx/ffmpeg"  # Update to "/home/fubtolx/bin/ffmpeg" if moved
 
     def generate_thumbnail(self, m3u8_link, stream_id):
         thumbnail_path = f"/tmp/{stream_id}_thumb.jpg"
         ffmpeg_cmd = [
-            "ffmpeg",
+            self.ffmpeg_path,
             "-i", m3u8_link,
             "-vframes", "1",
             "-vf", "select=eq(n\,0)",  # Capture first frame
@@ -25,11 +27,13 @@ class StreamManager:
         ]
         try:
             # Increase timeout to handle initial stream buffering
-            subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
+            result = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, text=True)
             if os.path.exists(thumbnail_path):
                 return thumbnail_path
+            print(f"Thumbnail generation failed: {result.stderr}")  # Debug
             return None
-        except Exception:
+        except Exception as e:
+            print(f"Thumbnail generation error: {str(e)}")  # Debug
             return None
 
     def thumbnail_thread(self, m3u8_link, stream_id):
@@ -47,7 +51,7 @@ class StreamManager:
         
         # Build FFmpeg command for streaming
         ffmpeg_cmd = [
-            "ffmpeg",
+            self.ffmpeg_path,
             "-re",  # Read input at native frame rate
             "-i", m3u8_link,
             "-c:v", "libx264",
@@ -60,6 +64,7 @@ class StreamManager:
 
         # Start FFmpeg process with detailed logging
         log_file_path = f"/tmp/{stream_id}_ffmpeg.log"
+        print(f"FFmpeg command: {' '.join(ffmpeg_cmd)}")  # Debug
         try:
             with open(log_file_path, "w") as log_file:
                 process = subprocess.Popen(ffmpeg_cmd, stdout=log_file, stderr=log_file)
