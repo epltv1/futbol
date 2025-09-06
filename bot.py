@@ -79,7 +79,7 @@ async def stream(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"Failed to start stream: {str(e)}"
         )
 
-# /streaminfo command
+# /streaminfo command (updated version without thumbnails)
 async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_message(update, context)
     user_id = update.effective_user.id
@@ -107,24 +107,14 @@ async def streaminfo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         stream_id, m3u8_link, _, _, stream_title, _, _ = stream
         duration = stream_manager.get_stream_duration(stream_id)
         if duration:
-            thumbnail_path = f"/tmp/{stream_id}_thumb.jpg"
             message = f"Stream ID: {stream_id}\nTitle: {stream_title}\nDuration: {duration}"
             keyboard = [[InlineKeyboardButton("Stop", callback_data=f"stop_{stream_id}")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            if os.path.exists(thumbnail_path):
-                with open(thumbnail_path, 'rb') as photo:
-                    await context.bot.send_photo(
-                        chat_id=update.effective_chat.id,
-                        photo=photo,
-                        caption=message,
-                        reply_markup=reply_markup
-                    )
-            else:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=f"{message}\nWarning: Thumbnail not available.",
-                    reply_markup=reply_markup
-                )
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message,
+                reply_markup=reply_markup
+            )
 
 # /stop command
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -314,7 +304,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Available Commands:
 /start - Initialize the bot
 /stream <m3u8_link> <rtmp_url> <stream_key> <stream_title> - Start a stream
-/streaminfo - List your active streams with thumbnails and details
+/streaminfo - List your active streams with details
 /stop <stream_id> - Stop a specific stream you started
 /help - Show this help message
 """
