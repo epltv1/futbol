@@ -1,4 +1,3 @@
-# stream_manager.py
 import subprocess
 import uuid
 import os
@@ -45,24 +44,50 @@ class StreamManager:
         # Ensure rtmp_url ends with a slash and combine with stream_key
         rtmp_destination = f"{rtmp_url.rstrip('/')}/{stream_key.lstrip('/')}"
         
-        # Build FFmpeg command for streaming
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-re",  # Read input at native frame rate
-            "-i", m3u8_link,
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-c:a", "aac",
-            "-f", "flv",
-            "-loglevel", "error",  # Log only errors
-            rtmp_destination
-        ]
+        def build_ffmpeg_cmd():
+            # Build FFmpeg command for streaming with reconnect options
+            return [
+                "ffmpeg",
+                "-re",  # Read input at native frame rate
+                "-i", m3u8_link,
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-c:a", "aac",
+                "-f", "flv",
+                "-loglevel", "error",  # Log only errors
+                "-reconnect", "1",  # Enable reconnection for input
+                "-reconnect_streamed", "1",  # Reconnect for streamed content
+                "-reconnect_delay_max", "30",  # Max reconnect delay (seconds)
+                "-timeout", "10000000",  # Set timeout for connection attempts (in microseconds)
+                rtmp_destination
+            ]
+
+        def monitor_stream(stream_id, process, log_file_path):
+            while stream_id in self.processes and not self.stop_threads.get(stream_id, False):
+                process.poll()
+                if process.returncode is not None:  # Process has terminated unexpectedly
+                    try:
+                        # Restart FFmpeg process
+                        with open(log_file_path, "a") as log_file:
+                            new_process = subprocess.Popen(build_ffmpeg_cmd(), stdout=log_file, stderr=log_file)
+                        new_process.poll()
+                        if new_process.returncode is not None:
+                            with open(log_file_path, "r") as f:
+                                error_log = f.read()
+                            print(f"Failed to restart stream {stream_id}: {error_log}")
+                            break
+                        self.processes[stream_id]["process"] = new_process
+                        print(f"Restarted FFmpeg process for stream {stream_id}")
+                    except Exception as e:
+                        print(f"Error restarting stream {stream_id}: {str(e)}")
+                        break
+                time.sleep(10)  # Check every 10 seconds
 
         # Start FFmpeg process with detailed logging
         log_file_path = f"/tmp/{stream_id}_ffmpeg.log"
         try:
             with open(log_file_path, "w") as log_file:
-                process = subprocess.Popen(ffmpeg_cmd, stdout=log_file, stderr=log_file)
+                process = subprocess.Popen(build_ffmpeg_cmd(), stdout=log_file, stderr=log_file)
             # Check if process started successfully
             process.poll()
             if process.returncode is not None and process.returncode != 0:
@@ -76,6 +101,10 @@ class StreamManager:
             thread.daemon = True
             thread.start()
             self.thumbnail_threads[stream_id] = thread
+            # Start monitoring thread for FFmpeg process
+            monitor_thread = threading.Thread(target=monitor_stream, args=(stream_id, process, log_file_path))
+            monitor_thread.daemon = True
+            monitor_thread.start()
             return stream_id
         except Exception as e:
             if os.path.exists(log_file_path):
