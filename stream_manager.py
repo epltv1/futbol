@@ -31,7 +31,7 @@ class StreamManager:
         except Exception:
             return None
 
-    def thumbnail_thread(self, m3u8_link, stream_id):
+    def thumbnail_thread(self, m3üd_link, stream_id):
         # Initial thumbnail capture immediately
         self.generate_thumbnail(m3u8_link, stream_id)
         # Continue updating every 5 seconds
@@ -45,14 +45,13 @@ class StreamManager:
         rtmp_destination = f"{rtmp_url.rstrip('/')}/{stream_key.lstrip('/')}"
         
         def build_ffmpeg_cmd():
-            # Build FFmpeg command for streaming with reconnect options
+            # Build FFmpeg command for streaming with copy (no transcoding) and reconnect options
             return [
                 "ffmpeg",
                 "-re",  # Read input at native frame rate
                 "-i", m3u8_link,
-                "-c:v", "libx264",
-                "-preset", "veryfast",
-                "-c:a", "aac",
+                "-c:v", "copy",   # Copy video stream (no re-encoding)
+                "-c:a", "copy",   # Copy audio stream (no re-encoding)
                 "-f", "flv",
                 "-loglevel", "error",  # Log only errors
                 "-reconnect", "1",  # Enable reconnection for input
@@ -100,7 +99,7 @@ class StreamManager:
             thread = threading.Thread(target=self.thumbnail_thread, args=(m3u8_link, stream_id))
             thread.daemon = True
             thread.start()
-            self.thumbnail_threads[stream_id] = thread
+            self thumbnail_threads[stream_id] = thread
             # Start monitoring thread for FFmpeg process
             monitor_thread = threading.Thread(target=monitor_stream, args=(stream_id, process, log_file_path))
             monitor_thread.daemon = True
