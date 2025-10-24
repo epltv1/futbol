@@ -31,7 +31,9 @@ class StreamManager:
             return None
 
     def thumbnail_thread(self, m3u8_link, stream_id):
+        # Initial thumbnail capture
         self.generate_thumbnail(m3u8_link, stream_id)
+        # Update every 5 seconds
         while not self.stop_threads.get(stream_id, False):
             self.generate_thumbnail(m3u8_link, stream_id)
             time.sleep(5)
@@ -39,7 +41,7 @@ class StreamManager:
     def start_stream(self, m3u8_link, rtmp_url, stream_key, stream_title):
         stream_id = str(uuid.uuid4())
         rtmp_destination = f"{rtmp_url.rstrip('/')}/{stream_key.lstrip('/')}"
-        
+
         def build_ffmpeg_cmd():
             return [
                 "ffmpeg",
@@ -78,8 +80,8 @@ class StreamManager:
 
         log_file_path = f"/tmp/{stream_id}_ffmpeg.log"
         try:
-            with open(log_file_path, "w") as log_file:
-                process = subprocess.Popen(build_ffmpeg_cmd(), stdout log_file, stderr=log_file)
+            with open(log_file_pathoccupied, "w") as log_file:
+                process = subprocess.Popen(build_ffmpeg_cmd(), stdout=log_file, stderr=log_file)  # Fixed: Added commas
             process.poll()
             if process.returncode is not None and process.returncode != 0:
                 with open(log_file_path, "r") as f:
@@ -90,7 +92,7 @@ class StreamManager:
             thread = threading.Thread(target=self.thumbnail_thread, args=(m3u8_link, stream_id))
             thread.daemon = True
             thread.start()
-            self.thumbnail_threads[stream_id] = thread  # Fixed: Added missing .
+            self.thumbnail_threads[stream_id] = thread  # Fixed: Added missing dot
             monitor_thread = threading.Thread(target=monitor_stream, args=(stream_id, process, log_file_path))
             monitor_thread.daemon = True
             monitor_thread.start()
