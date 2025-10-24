@@ -17,13 +17,16 @@ class StreamManager:
             "ffmpeg",
             "-i", m3u8_link,
             "-vframes", "1",
-            "-vf", "select=eq(n,0)",  # Fixed: Removed invalid \,
+            "-vf", "select=eq(n,0)",   # fixed escape
             "-q:v", "2",
             "-y",
             thumbnail_path
         ]
         try:
-            subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15)
+            subprocess.run(ffmpeg_cmd,
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE,
+                           timeout=15)
             if os.path.exists(thumbnail_path):
                 return thumbnail_path
             return None
@@ -31,9 +34,7 @@ class StreamManager:
             return None
 
     def thumbnail_thread(self, m3u8_link, stream_id):
-        # Initial thumbnail capture
         self.generate_thumbnail(m3u8_link, stream_id)
-        # Update every 5 seconds
         while not self.stop_threads.get(stream_id, False):
             self.generate_thumbnail(m3u8_link, stream_id)
             time.sleep(5)
@@ -64,7 +65,9 @@ class StreamManager:
                 if process.returncode is not None:
                     try:
                         with open(log_file_path, "a") as log_file:
-                            new_process = subprocess.Popen(build_ffmpeg_cmd(), stdout=log_file, stderr=log_file)
+                            new_process = subprocess.Popen(build_ffmpeg_cmd(),
+                                                          stdout=log_file,
+                                                          stderr=log_file)
                         new_process.poll()
                         if new_process.returncode is not None:
                             with open(log_file_path, "r") as f:
@@ -80,23 +83,34 @@ class StreamManager:
 
         log_file_path = f"/tmp/{stream_id}_ffmpeg.log"
         try:
-            with open(log_file_pathoccupied, "w") as log_file:
-                process = subprocess.Popen(build_ffmpeg_cmd(), stdout=log_file, stderr=log_file)  # Fixed: Added commas
+            # FIXED: removed the typo "log_file_pathoccupied"
+            with open(log_file_path, "w") as log_file:
+                process = subprocess.Popen(build_ffmpeg_cmd(),
+                                          stdout=log_file,
+                                          stderr=log_file)
             process.poll()
             if process.returncode is not None and process.returncode != 0:
                 with open(log_file_path, "r") as f:
                     error_log = f.read()
                 raise RuntimeError(f"FFmpeg failed to start: {error_log}")
-            self.processes[stream_id] = {"process": process, "start_time": datetime.utcnow()}
+
+            self.processes[stream_id] = {"process": process,
+                                        "start_time": datetime.utcnow()}
             self.stop_threads[stream_id] = False
-            thread = threading.Thread(target=self.thumbnail_thread, args=(m3u8_link, stream_id))
+
+            thread = threading.Thread(target=self.thumbnail_thread,
+                                      args=(m3u8_link, stream_id))
             thread.daemon = True
             thread.start()
-            self.thumbnail_threads[stream_id] = thread  # Fixed: Added missing dot
-            monitor_thread = threading.Thread(target=monitor_stream, args=(stream_id, process, log_file_path))
+            self.thumbnail_threads[stream_id] = thread   # fixed missing dot
+
+            monitor_thread = threading.Thread(target=monitor_stream,
+                                              args=(stream_id, process, log_file_path))
             monitor_thread.daemon = True
             monitor_thread.start()
+
             return stream_id
+
         except Exception as e:
             error_log = "No log file generated."
             if os.path.exists(log_file_path):
@@ -111,19 +125,22 @@ class StreamManager:
                 self.thumbnail_threads[stream_id].join(timeout=1)
                 del self.thumbnail_threads[stream_id]
             del self.stop_threads[stream_id]
+
             self.processes[stream_id]["process"].terminate()
             try:
                 self.processes[stream_id]["process"].wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.processes[stream_id]["process"].kill()
             del self.processes[stream_id]
-            for path in [f"/tmp/{stream_id}_ffmpeg.log", f"/tmp/{stream_id}_thumb.jpg"]:
+
+            for path in [f"/tmp/{stream_id}_ffmpeg.log",
+                         f"/tmp/{stream_id}_thumb.jpg"]:
                 if os.path.exists(path):
                     os.remove(path)
             return True
         return False
 
-    def get_stream_duration(self, stream_id):
+    def get_stream_duration_request_duration(self, stream_id):
         if stream_id in self.processes:
             start_time = self.processes[stream_id]["start_time"]
             duration = (datetime.utcnow() - start_time).total_seconds()
